@@ -16,7 +16,7 @@ categorias = [Categoria("Terror"), Categoria("Novelas")]
 multas = []
 
 # Creación de usuarios de prueba
-usuario1 = Usuario("Cristian David", 1109540572, "juan.chaux@utp.edu.co", 3102820764)
+usuario1 = Usuario("Cristian David", 1109540572, "c.arango1@utp.edu.co", 3102820764)
 usuarios.append(usuario1)
 ReportesUsuarios.append(ReporteUsuario(usuario1))
 usuario2 = Usuario("Pedrito Pérez", 12345, "example@example.com")
@@ -24,7 +24,7 @@ usuarios.append(usuario2)
 ReportesUsuarios.append(ReporteUsuario(usuario2))
 
 # Creación de libros de prueba
-libro1 = Libro("IT", "Stephen King", "Terror", "CFT0001TR", 57)
+libro1 = Libro("IT", "Stephen King", "Terror", "CFT0001TR", 11)
 libros.append(libro1)
 ReportesLibros.append(ReporteLibro(libro1))
 categorias[0].agregarLibro(libro1)
@@ -40,6 +40,9 @@ libro4 = Libro("Carrie", "Stephen King", "Terror", "CFT0001TR", 57)
 libros.append(libro4)
 ReportesLibros.append(ReporteLibro(libro4))
 categorias[0].agregarLibro(libro4)
+
+ReportesGeneros.append(ReporteGenero("Terror"))
+ReportesGeneros.append(ReporteGenero("Novela"))
 
 # Creación de prestamos de prueba
 fecha1 = datetime(2023, 10, 15)
@@ -144,9 +147,14 @@ while True:
             documento = int(input())
             usuario = Usuario.buscarUsuario("documento", documento, usuarios)
             if usuario:
-                usuario = usuario[0]
-                usuarios.remove(usuario)
-                print("Usuario eliminado")
+                tieneMultas = Multa.buscarMulta(usuario[0], multas)
+                tienePrestamos = Prestamo.buscarPrestamo(usuario[0], prestamos)
+                if tieneMultas or tienePrestamos:
+                    print("El usuario tiene multas o prestamos activos, no se puede eliminar")
+                else:    
+                    usuario = usuario[0]
+                    usuarios.remove(usuario)
+                    print("Usuario eliminado")
                 esperar()
             else:
                 print("Usuario no encontrado")
@@ -292,9 +300,13 @@ while True:
             ISBN = input()
             libro = Libro.buscarLibro("ISBN", ISBN, libros)
             if libro:
-                libro = libro[0]
-                libros.remove(libro)
-                print("Libro eliminado")
+                tienePrestamos = Prestamo.numPrestamosLibro(libro[0], prestamos)
+                if tienePrestamos > 0:
+                    print("El libro tiene prestamos activos, no se puede eliminar")
+                else:
+                    libro = libro[0]
+                    libros.remove(libro)
+                    print("Libro eliminado")
                 esperar()
             else:
                 print("Libro no encontrado")
@@ -367,8 +379,8 @@ while True:
             usuario = Usuario.buscarUsuario("documento", documento, usuarios)
             usuario = usuario[0] if usuario else None
             tieneMultas = Multa.buscarMulta(usuario, multas)
-            tienePrestamos = Prestamo.buscarPrestamo(usuario, prestamos)
-            if usuario and not tieneMultas and not tienePrestamos:
+            numeroPrestamos = Prestamo.buscarPrestamo(usuario, prestamos)
+            if usuario and not tieneMultas and len(numeroPrestamos) < 3:
                 print("Criterio de busqueda del libro: ")
                 print("0. Titulo")
                 print("1. Autor")
@@ -377,8 +389,12 @@ while True:
                 criterio = "titulo" if criterio == "0" else "autor" if criterio == "1" else "genero"
                 valorBusqueda = input("Ingrese el valor de busqueda: ")
                 libro = Libro.buscarLibro(criterio, valorBusqueda, libros)
+                for i in range(len(libro)):
+                    print(f"{i} {libro[i]}")
+                    
+                numLibro = int(input("Ingrese el numero del libro a prestar: "))
                 if libro:
-                    libro = libro[0]
+                    libro = libro[numLibro]
                     print("La fecha de prestamo será la fecha actual.")
                     fecha_prestamo = datetime.now()  # Obtiene la fecha y hora actual
                     
@@ -397,16 +413,23 @@ while True:
                         reporteLib.agregarPrestamo()
                         reporteUs = ReporteUsuario.buscarReporte(ReportesUsuarios, usuario)
                         reporteUs.agregarPrestamo()
-                        reporteGen = ReporteGenero.buscarReporte(ReportesGeneros, libro.getGenero())
+                        reporteGen = libro.getGenero()
+                        reporteGen = ReporteGenero.buscarReporte(ReportesGeneros, reporteGen)
                         reporteGen.agregarPrestamo()
                         print("Prestamo realizado")
                         esperar()
                         prestamos.append(prestamo)
+                        
+                        if libro.getNumCopias() > 0 and libro.getNumCopias() <= 10:
+                            correo.sendNotification(libro, 0)
+                        elif libro.getNumCopias() == 0:
+                            correo.sendNotification(libro, 1)
+                            
                     else:
                         print("No se pudo realizar el prestamo")
                         esperar()
             else:
-                print("El usuario no existe o tiene multas o prestamos pendientes")
+                print("El usuario no existe o tiene multas o 3 prestamos activos")
                 esperar()
         
         elif opcion == "2":
@@ -415,18 +438,34 @@ while True:
             usuario = Usuario.buscarUsuario("documento", documento, usuarios)
             if usuario:
                 prestamo = Prestamo.buscarPrestamo(usuario[0], prestamos)
+                print("Lista de prestamos: \n")
+                for i in range(len(prestamo)):
+                    print(f"{i} {prestamo[i]}")
+                numPrestamo = int(input("Ingrese el numero del prestamo a devolver: "))
+
                 if prestamo:
-                    prestamo = prestamo[0]
+                    prestamo = prestamo[numPrestamo]
                     prestamo.devolucion()
 
                     banderaMulta = False
                     fecha_actual = datetime.today()
                     if fecha_actual > prestamo.getFechaDevolucion():
                         diasEnMora = abs((prestamo.getFechaDevolucion() - fecha_actual).days)
-                        multa = Multa(usuario[0], diasEnMora * 2000)
-                        correo.sendEmail(usuario[0], multa, diasEnMora)
-                        multas.append(multa)
-                        banderaMulta = True
+                        if diasEnMora > 3:  
+                            multa = Multa(usuario[0], (diasEnMora-3) * 2000, prestamo.getLibro())
+                            correo.sendEmail(usuario[0], multa, diasEnMora - 3, prestamo.getLibro())
+                            multas.append(multa)
+                            banderaMulta = True
+                            
+                            if ReporteLibro.buscarReporte(ReportesLibros, prestamo.getLibro()):
+                                reporteLib = ReporteLibro.buscarReporte(ReportesLibros, prestamo.getLibro())
+                                reporteLib.agregarMultas()
+                            else:
+                                reporteLib = ReporteLibro(prestamo.getLibro())
+                                reporteLib.agregarMultas()
+                                ReportesLibros.append(reporteLib)
+                            
+            
                     prestamos.remove(prestamo)
 
                     print(f"Libro devuelto { 'y multa generada' if banderaMulta else '' }")
@@ -445,8 +484,9 @@ while True:
             if usuario:
                 prestamo = Prestamo.buscarPrestamo(usuario[0], prestamos)
                 if prestamo:
-                    prestamo = prestamo[0]
-                    print(prestamo)
+                    print("Lista de prestamos: \n")
+                    for i in range(len(prestamo)):
+                        print(f"{i} {prestamo[i]}")
                     esperar()
                 else:
                     print("No se encontró ningún prestamo para el usuario")
@@ -454,6 +494,7 @@ while True:
             else:
                 print("Usuario no encontrado")
                 esperar()
+                
         elif opcion == "4":
             print("Lista de prestamos: \n")
             for pres in prestamos:
@@ -528,6 +569,13 @@ while True:
             for reporte in reportes_generos_ordenados:
                 print(f"Genero: {reporte.genero}, Prestamos: {reporte.getPrestamosRealizados()}")
             esperar()
+        
+        elif opcion == "3":
+            reportes_libros_ordenados = sorted(ReportesLibros, key=lambda reporte: reporte.getMultasRealizadas(), reverse=True)
+
+            for reporte in reportes_libros_ordenados:
+                print(f"Libro: {reporte.libro.getTitulo()}, Multas: {reporte.getMultasRealizadas()}")
+            esperar()
             
     elif opcion == "6":
         print(InterfazUsuario.menuInventario())
@@ -554,23 +602,14 @@ while True:
             categorias.append(Categoria(f"{nombre}"))
 
         elif opcion == "2":
-            print("Lista de categorias: \n")
-            for cat in categorias:
-                print(cat)
-            esperar()
-
-
-    # if opcion == "3":
-    #     categoria = input("Ingrese el nombre de la categoria: ")
-    #     categorias.append(Categoria(f"{categoria}"))      
+            print("Lista de categorias: ")
+            for i in range(len(categorias)):
+                print(f"{i} {categorias[i].getNombre()}")
+            opcCategoria = int(input("Seleccione la categoria: "))
+            nombre = input("Ingrese el nombre de la subcategoria: ")
+            categorias[opcCategoria].agregarSubcategoria(nombre)
         
-
-
-# Pendientes:
-# - Crear reportes estadisticos ( libro que mas multas tiene generadas )
-# - cambiar las multas para que se generen luego de 3 dias
-# - Cambiar que cada usuario pueda tener maximo 3 prestamos
-# - Cambiar las multas para que tambien traigan el libro por el cual se genero la multa
-# - Inventario para notificar cuando un libro esta a punto de agotarse ( 10 unidades )
-# - Inventario para notificar cuando un libro se agota
-
+        elif opcion == "3":
+            print("Lista de categorias: ")
+            for i in range(len(categorias)):
+                print(f"{i} {categorias[i].getNombre()}")

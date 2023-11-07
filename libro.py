@@ -46,10 +46,12 @@ class Libro:
                 if libro is not None and unidecode(libro.getGenero().lower()) == unidecode(valor.lower()):
                     listaLibs.append(libro)
             return listaLibs if listaLibs else None
-    
-    @staticmethod
-    def disponibilidadLibro (libro):    
-        return libro.getNumCopias()
+        
+        if criterio == "ISBN":
+            for libro in libros:
+                if libro is not None and unidecode(libro.getISBN().lower()) == unidecode(valor.lower()):
+                    listaLibs.append(libro)
+            return listaLibs if listaLibs else None
 
     @staticmethod
     def listarLibros(criterio,valor, libros):

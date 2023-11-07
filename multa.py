@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 class Multa:
-    def __init__(self, usuario, cantidad):
+    def __init__(self, usuario, cantidad, libro):
         self.usuario = usuario
         self.cantidad = cantidad
+        self.libro = libro
     
     def getUsuario(self):
         return self.usuario

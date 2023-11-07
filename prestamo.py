@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from unidecode import unidecode
 
 class Prestamo:
     def __init__(self, usuario, libro, fecha_prestamo, fecha_devolucion_prevista):
@@ -8,13 +9,16 @@ class Prestamo:
         self.fecha_devolucion_prevista = fecha_devolucion_prevista
 
     def __str__(self) -> str:
-        return f"Usuario: {self.usuario}\nLibro: {self.libro}\nFecha de prestamo: {self.fecha_prestamo}\nFecha de devolucion prevista: {self.fecha_devolucion_prevista}\n\n"
+        return f"Usuario: {self.usuario.getNombre()}\nLibro: {self.libro.getTitulo()}\nFecha de prestamo: {self.fecha_prestamo}\nFecha de devolucion prevista: {self.fecha_devolucion_prevista}\n\n"
     
     def getUsuario(self):
         return self.usuario
     
     def getFechaDevolucion(self):
         return self.fecha_devolucion_prevista
+    
+    def getLibro(self):
+        return self.libro
     
     def realizar_prestamo(self):
         if self.libro.getNumCopias() > 0:
@@ -39,6 +43,6 @@ class Prestamo:
     def numPrestamosLibro(libro, prestamos):
         numPrestamos = 0
         for pres in prestamos:
-            if pres.libro.getTitulo() == libro.getTitulo():
+            if unidecode(pres.libro.getTitulo()) == unidecode(libro.getTitulo()):
                 numPrestamos += 1
         return numPrestamos
